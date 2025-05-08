@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Tracker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    <style>
+        /* Global Styles */
+        :root {
+            --primary-color: #a3d9ff;
+            --secondary-color: #ffcad4;
+            --accent-color: #b8e0d2;
+            --text-color: #444;
+            --light-bg: #f8f9fa;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--light-bg);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1, h2, h3 {
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+
+        /* Auth Screens */
+        .auth-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        }
+
+        .auth-form {
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .auth-form h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .btn {
+            padding: 12px 20px;
+            background-color: var(--primary-color);
+            color: #333;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+
+        .btn:hover {
+            background-color: #8bc4ff;
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .auth-toggle {
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        .auth-toggle a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        /* Dashboard Styles */
+        .dashboard {
+            display: none;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: white;
+            box-shadow: var(--shadow);
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            margin: 0;
+            color: #333;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .username {
+            font-weight: 600;
+        }
+
+        .logout-btn {
+            background-color: var(--secondary-color);
+            color: #333;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+
+        .logout-btn:hover {
+            background-color: #ffb5c2;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        @media (min-width: 992px) {
+            .main-content {
+                grid-template-columns: 1fr 2fr;
+            }
+        }
+
+        .card {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            padding: 20px;
+            height: fit-content;
+        }
+
+        .card-title {
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Form Styles */
+        .expense-form select,
+        .expense-form input,
+        .expense-form textarea {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 15px;
+            font-family: var(--font-family);
+        }
+
+        .expense-form label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .submit-btn {
+            background-color: var(--accent-color);
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .submit-btn:hover {
+            background-color: #9dd1be;
+        }
+
+        /* Expense List Styles */
+        .expense-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            overflow-x: auto;
+        }
+
+        .expense-table th,
+        .expense-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+
+        .expense-table th {
+            background-color: var(--accent-color);
+            color: #333;
+            font-weight: 600;
+        }
+
+        .expense-table tr:hover {
+            background-color: #f9f9f9;
+        }
+
+        .expense-table .amount {
+            font-weight: 600;
+        }
+        
+        .delete-btn {
+            background-color: var(--secondary-color);
+            color: #333;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .delete-btn:hover {
+            background-color: #ff9aa2;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        /* Charts Section */
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .chart-card {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            padding: 20px;
+            height: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chart-title {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 18px;
+            font-weight: 600;
+            width: 100%;
+        }
+        
+        .chart-container {
+            width: 100%;
+            height: 230px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Download Button */
+        .download-section {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 15px;
+        }
+
+        .download-btn {
+            background-color: var(--primary-color);
+            color: #333;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: background-color 0.3s;
+        }
+
+        .download-btn:hover {
+            background-color: #8bc4ff;
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            .charts-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .card-title {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            
+            .download-section {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Authentication Section -->
+    <div class="auth-container" id="loginScreen">
+        <div class="auth-form">
+            <h2>Login to Expense Tracker</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="loginUsername">Username</label>
+                    <input type="text" id="loginUsername" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" class="form-control" required>
+                </div>
+                <button type="submit" class="btn">Login</button>
+            </form>
+            <div class="auth-toggle">
+                <p>Don't have an account? <a href="#" id="showRegister">Register</a></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="auth-container" id="registerScreen" style="display: none;">
+        <div class="auth-form">
+            <h2>Create an Account</h2>
+            <form id="registerForm">
+                <div class="form-group">
+                    <label for="registerUsername">Username</label>
+                    <input type="text" id="registerUsername" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">Password</label>
+                    <input type="password" id="registerPassword" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password</label>
+                    <input type="password" id="confirmPassword" class="form-control" required>
+                </div>
+                <button type="submit" class="btn">Register</button>
+            </form>
+            <div class="auth-toggle">
+                <p>Already have an account? <a href="#" id="showLogin">Login</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Section -->
+    <div class="dashboard" id="dashboard">
+        <div class="container">
+            <div class="header">
+                <h1>Expense Tracker</h1>
+                <div class="user-info">
+                    <span class="username" id="usernameDisplay"></span>
+                    <button class="logout-btn" id="logoutBtn">Logout</button>
+                </div>
+            </div>
+            
+            <div class="main-content">
+                <!-- Add Expense Form -->
+                <div class="card">
+                    <div class="card-title">
+                        <h2>Add New Expense</h2>
+                    </div>
+                    <form id="expenseForm" class="expense-form">
+                        <div class="form-group">
+                            <label for="category">Category</label>
+                            <select id="category" class="form-control" required>
+                                <option value="" disabled selected>Select Category</option>
+                                <option value="Food">Food</option>
+                                <option value="Transportation">Transportation</option>
+                                <option value="Utilities">Utilities</option>
+                                <option value="Entertainment">Entertainment</option>
+                                <option value="Shopping">Shopping</option>
+                                <option value="Healthcare">Healthcare</option>
+                                <option value="Education">Education</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="amount">Amount Spent</label>
+                            <input type="number" id="amount" class="form-control" min="0" step="0.01" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="paymentMode">Transaction Mode</label>
+                            <select id="paymentMode" class="form-control" required>
+                                <option value="" disabled selected>Select Payment Method</option>
+                                <option value="Cash">Cash</option>
+                                <option value="UPI">UPI</option>
+                                <option value="Debit Card">Debit Card</option>
+                                <option value="Credit Card">Credit Card</option>
+                                <option value="Net Banking">Net Banking</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="date">Date of Transaction</label>
+                            <input type="date" id="date" class="form-control" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="description">Description</label>
+                            <textarea id="description" class="form-control" rows="3" placeholder="Enter details about this expense"></textarea>
+                        </div>
+                        
+                        <button type="submit" class="btn submit-btn">Add Expense</button>
+                    </form>
+                </div>
+                
+                <!-- Expense List -->
+                <div class="card">
+                    <div class="card-title">
+                        <h2>Recent Expenses</h2>
+                        <div class="download-section">
+                            <button class="download-btn" id="downloadBtn">
+                                Export to Excel
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="expense-table" id="expenseTable">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Date</th>
+                                    <th>Amount</th>
+                                    <th>Payment</th>
+                                    <th>Description</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="expenseTableBody">
+                                <!-- Expense rows will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Charts Section -->
+            <div class="charts-container">
+                <div class="chart-card">
+                    <h3 class="chart-title">Expenses by Category</h3>
+                    <div class="chart-container">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3 class="chart-title">Monthly Expenses</h3>
+                    <div class="chart-container">
+                        <canvas id="timeChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3 class="chart-title">Expenses by Payment Method</h3>
+                    <div class="chart-container">
+                        <canvas id="paymentChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // User Management
+        let currentUser = null;
+        let users = JSON.parse(localStorage.getItem('users')) || [];
+        
+        // Mock function for storing to Excel (simulated)
+        function storeToExcel(data, type) {
+            console.log(`Storing ${type} data to Excel:`, data);
+            // In a real implementation, this would connect to a backend service
+            return true;
+        }
+        
+        // Authentication Logic
+        document.getElementById('showRegister').addEventListener('click', function() {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('registerScreen').style.display = 'flex';
+        });
+        
+        document.getElementById('showLogin').addEventListener('click', function() {
+            document.getElementById('registerScreen').style.display = 'none';
+            document.getElementById('loginScreen').style.display = 'flex';
+        });
+        
+        // Registration Form
+        document.getElementById('registerForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('registerUsername').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (password !== confirmPassword) {
+                alert('Passwords do not match!');
+                return;
+            }
+            
+            // Check if username exists
+            if (users.find(user => user.username === username)) {
+                alert('Username already exists!');
+                return;
+            }
+            
+            // Create new user
+            const newUser = {
+                username,
+                password, // In a real app, this should be hashed
+                expenses: []
+            };
+            
+            users.push(newUser);
+            localStorage.setItem('users', JSON.stringify(users));
+            
+            // Call mock Excel storage function
+            storeToExcel({username, password}, 'credentials');
+            
+            alert('Registration successful! Please login.');
+            document.getElementById('registerScreen').style.display = 'none';
+            document.getElementById('loginScreen').style.display = 'flex';
+        });
+        
+        // Login Form
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            const user = users.find(u => u.username === username && u.password === password);
+            
+            if (user) {
+                currentUser = user;
+                document.getElementById('usernameDisplay').textContent = username;
+                
+                // Hide login, show dashboard
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                
+                // Load user's expenses
+                loadExpenses();
+                updateCharts();
+            } else {
+                alert('Invalid username or password!');
+            }
+        });
+        
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', function() {
+            currentUser = null;
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('loginForm').reset();
+        });
+        
+        // Expense Management
+        const expenseForm = document.getElementById('expenseForm');
+        const expenseTableBody = document.getElementById('expenseTableBody');
+        
+        // Add new expense
+        expenseForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const category = document.getElementById('category').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+            const paymentMode = document.getElementById('paymentMode').value;
+            const date = document.getElementById('date').value;
+            const description = document.getElementById('description').value;
+            
+            // Create expense object
+            const expense = {
+                id: Date.now(), // Unique ID based on timestamp
+                category,
+                amount,
+                paymentMode,
+                date,
+                description
+            };
+            
+            // Add to current user's expenses
+            if (currentUser) {
+                currentUser.expenses.push(expense);
+                
+                // Update users array
+                const userIndex = users.findIndex(u => u.username === currentUser.username);
+                users[userIndex] = currentUser;
+                
+                // Save to localStorage
+                localStorage.setItem('users', JSON.stringify(users));
+                
+                // Update UI
+                addExpenseToTable(expense);
+                updateCharts();
+                
+                // Reset form
+                expenseForm.reset();
+                
+                // Show success message
+                alert('Expense added successfully!');
+            }
+        });
+        
+        // Load expenses to table
+        function loadExpenses() {
+            expenseTableBody.innerHTML = '';
+            
+            if (currentUser && currentUser.expenses) {
+                // Sort expenses by date (newest first)
+                currentUser.expenses
+                    .slice()
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .forEach(expense => {
+                        addExpenseToTable(expense);
+                    });
+            }
+        }
+        
+        // Add single expense to table
+        function addExpenseToTable(expense) {
+            const tr = document.createElement('tr');
+            tr.setAttribute('data-id', expense.id);
+            
+            // Format date for display
+            const dateObj = new Date(expense.date);
+            const formattedDate = dateObj.toLocaleDateString();
+            
+            tr.innerHTML = `
+                <td>${expense.category}</td>
+                <td>${formattedDate}</td>
+                <td class="amount">${expense.amount.toFixed(2)}</td>
+                <td>${expense.paymentMode}</td>
+                <td>${expense.description}</td>
+                <td>
+                    <button class="delete-btn" data-id="${expense.id}">
+                        Delete
+                    </button>
+                </td>
+            `;
+            
+            // Add event listener to delete button
+            tr.querySelector('.delete-btn').addEventListener('click', function() {
+                deleteExpense(expense.id);
+            });
+            
+            expenseTableBody.prepend(tr); // Add to the top of the table
+        }
+        
+        // Charts
+        let categoryChart, timeChart, paymentChart;
+        
+        function initCharts() {
+            // Category Pie Chart
+            const ctxCategory = document.getElementById('categoryChart').getContext('2d');
+            categoryChart = new Chart(ctxCategory, {
+                type: 'pie',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: [
+                            '#FFB6C1', // Light Pink
+                            '#ADD8E6', // Light Blue
+                            '#90EE90', // Light Green
+                            '#FFA07A', // Light Salmon
+                            '#D8BFD8', // Thistle
+                            '#FFFACD', // Lemon Chiffon
+                            '#AFEEEE', // Pale Turquoise
+                            '#DDA0DD'  // Plum
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        }
+                    }
+                }
+            });
+            
+            // Time Bar Chart
+            const ctxTime = document.getElementById('timeChart').getContext('2d');
+            timeChart = new Chart(ctxTime, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Monthly Expenses',
+                        data: [],
+                        backgroundColor: '#a3d9ff',
+                        borderColor: '#8bc4ff',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Amount ($)'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Payment Method Doughnut Chart
+            const ctxPayment = document.getElementById('paymentChart').getContext('2d');
+            paymentChart = new Chart(ctxPayment, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: [
+                            '#ffcad4', // Light Pink
+                            '#b8e0d2', // Mint Green
+                            '#d6eadf', // Pale Green
+                            '#eac4d5', // Pale Pink
+                            '#b8bedd', // Lavender Blue
+                            '#d5bdaf'  // Pale Brown
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateCharts() {
+            if (!currentUser || !currentUser.expenses || currentUser.expenses.length === 0) {
+                return;
+            }
+            
+            // Initialize charts if not already done
+            if (!categoryChart) {
+                initCharts();
+            }
+            
+            // Data for category chart
+            const categoryData = {};
+            currentUser.expenses.forEach(expense => {
+                if (categoryData[expense.category]) {
+                    categoryData[expense.category] += expense.amount;
+                } else {
+                    categoryData[expense.category] = expense.amount;
+                }
+            });
+            
+            // Data for payment chart
+            const paymentData = {};
+            currentUser.expenses.forEach(expense => {
+                if (paymentData[expense.paymentMode]) {
+                    paymentData[expense.paymentMode] += expense.amount;
+                } else {
+                    paymentData[expense.paymentMode] = expense.amount;
+                }
+            });
+            
+            // Data for time chart (by month)
+            const timeData = {};
+            currentUser.expenses.forEach(expense => {
+                const date = new Date(expense.date);
+                const monthYear = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
+                
+                if (timeData[monthYear]) {
+                    timeData[monthYear] += expense.amount;
+                } else {
+                    timeData[monthYear] = expense.amount;
+                }
+            });
+            
+            // Sort months chronologically
+            const sortedMonths = Object.keys(timeData).sort((a, b) => {
+                const dateA = new Date(a);
+                const dateB = new Date(b);
+                return dateA - dateB;
+            });
+            
+            // Update category chart
+            categoryChart.data.labels = Object.keys(categoryData);
+            categoryChart.data.datasets[0].data = Object.values(categoryData);
+            categoryChart.update();
+            
+            // Update payment chart
+            paymentChart.data.labels = Object.keys(paymentData);
+            paymentChart.data.datasets[0].data = Object.values(paymentData);
+            paymentChart.update();
+            
+            // Update time chart
+            timeChart.data.labels = sortedMonths;
+            timeChart.data.datasets[0].data = sortedMonths.map(month => timeData[month]);
+            timeChart.update();
+        }
+        
+        // Export to Excel
+        document.getElementById('downloadBtn').addEventListener('click', function() {
+            if (!currentUser || !currentUser.expenses || currentUser.expenses.length === 0) {
+                alert('No expenses to export!');
+                return;
+            }
+            
+            // Prepare data for Excel
+            const data = currentUser.expenses.map(expense => {
+                return {
+                    Category: expense.category,
+                    Date: expense.date,
+                    Amount: expense.amount,
+                    'Transaction Mode': expense.paymentMode,
+                    Description: expense.description
+                };
+            });
+            
+            // Create worksheet
+            const ws = XLSX.utils.json_to_sheet(data);
+            
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Expenses');
+            
+            // Generate filename
+            const fileName = `${currentUser.username}_expenses_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
+            
+            // Export
+            XLSX.writeFile(wb, fileName);
+        });
+        
+        // Delete Expense Function
+        function deleteExpense(id) {
+            if (!currentUser) return;
+            
+            // Ask for confirmation
+            if (!confirm('Are you sure you want to delete this expense?')) {
+                return;
+            }
+            
+            // Find the expense index
+            const expenseIndex = currentUser.expenses.findIndex(e => e.id === id);
+            
+            if (expenseIndex !== -1) {
+                // Remove from array
+                currentUser.expenses.splice(expenseIndex, 1);
+                
+                // Update user in storage
+                const userIndex = users.findIndex(u => u.username === currentUser.username);
+                users[userIndex] = currentUser;
+                localStorage.setItem('users', JSON.stringify(users));
+                
+                // Remove from table
+                const row = document.querySelector(`tr[data-id="${id}"]`);
+                if (row) {
+                    row.remove();
+                }
+                
+                // Update charts
+                updateCharts();
+                
+                alert('Expense deleted successfully!');
+            }
+        }
+        
+        // Initialize charts when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set today's date as the default for the date input
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('date').value = today;
+            
+            // Initialize charts
+            initCharts();
+        });
+    </script>
+</body>
+</html>
